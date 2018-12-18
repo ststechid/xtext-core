@@ -1,5 +1,5 @@
 /*******************************************************************************
- * Copyright (c) 2008 itemis AG (http://www.itemis.eu) and others.
+ * Copyright (c) 2008, 2018 itemis AG (http://www.itemis.eu) and others.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
@@ -46,14 +46,22 @@ import com.google.inject.Injector;
  * }
  * </pre>
  * 
+ * <p>
+ * By default NullPointerExceptions occurring in the invocation of validation code are swallowed. 
+ * This behavior can be switched off calling {@link #setSwallowNullPointerExceptions(false)}.
+ * </p>
+ * 
  * @author Sven Efftinge - Initial contribution and API
  * @author Michael Clay
+ * @author Karsten Thoms
  */
 public abstract class AbstractDeclarativeValidator extends AbstractInjectableValidator implements
 		ValidationMessageAcceptor {
 
 	@Inject
 	private IssueSeveritiesProvider issueSeveritiesProvider;
+	
+	private boolean swallowNPE = true;
 
 	private static final Logger log = Logger.getLogger(AbstractDeclarativeValidator.class);
 
@@ -133,10 +141,15 @@ public abstract class AbstractDeclarativeValidator extends AbstractInjectableVal
 		}
 		
 		protected void handleInvocationTargetException(Throwable targetException, State state) {
-			// ignore GuardException, check is just not evaluated if guard is false
-			// ignore NullPointerException, as not having to check for NPEs all the time is a convenience feature
-			if (!(targetException instanceof GuardException) && !(targetException instanceof NullPointerException))
+			if (targetException instanceof NullPointerException) {
+				// ignore NullPointerException, as not having to check for NPEs all the time is a convenience feature
+				if (!instance.swallowNPE) {
+					Exceptions.throwUncheckedException(targetException);
+				}
+			} else if (!(targetException instanceof GuardException)) {
+				// ignore GuardException, check is just not evaluated if guard is false
 				Exceptions.throwUncheckedException(targetException);
+			}
 		}
 
 		@Override
@@ -544,6 +557,14 @@ public abstract class AbstractDeclarativeValidator extends AbstractInjectableVal
 
 	protected void checkDone() {
 		throw guardException;
+	}
+	
+	/**
+	 * When set to <code>false</code> NPEs occurring in validation code will cause the creation of an
+	 * exception based diagnostic. By default swallowing is enabled as convenience feature.
+	 */
+	protected void setSwallowNullPointerExceptions (boolean swallowNPE) {
+		this.swallowNPE = swallowNPE;
 	}
 
 	//////////////////////////////////////////////////////////

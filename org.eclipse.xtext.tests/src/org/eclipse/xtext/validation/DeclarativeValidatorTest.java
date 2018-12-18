@@ -343,4 +343,42 @@ public class DeclarativeValidatorTest extends Assert {
 		
 	}
 
+	// By default, NPEs occurring in validation code are swallowed 
+	@Test public void testSwallowNPEInValidation () {
+		AbstractDeclarativeValidator test = new AbstractDeclarativeValidator() {
+			@Check
+			public void foo(Object x) {
+				throw new NullPointerException();
+			}
+		};
+		BasicDiagnostic chain = new BasicDiagnostic();
+		Resource r = new ResourceImpl(URI.createURI("http://foo"));
+		EObject x = EcoreFactory.eINSTANCE.createEAttribute();
+		r.getContents().add(x);
+		test.validate(x, chain, Collections.emptyMap());
+		assertTrue(chain.getChildren().isEmpty());
+	}
+
+	// configure validator to forward NPEs occurring in validation code
+	@Test public void testDontSwallowNPEInValidation () {
+		AbstractDeclarativeValidator test = new AbstractDeclarativeValidator() {
+			{
+				setSwallowNullPointerExceptions(false);
+			}
+			@Check
+			public void foo(Object x) {
+				throw new NullPointerException();
+			}
+		};
+		BasicDiagnostic chain = new BasicDiagnostic();
+		Resource r = new ResourceImpl(URI.createURI("http://foo"));
+		EObject x = EcoreFactory.eINSTANCE.createEAttribute();
+		r.getContents().add(x);
+		try {
+			test.validate(x, chain, Collections.emptyMap());
+			fail("NPE expected");
+		} catch (NullPointerException expected) {
+			; // this is expected
+		}
+	}
 }
